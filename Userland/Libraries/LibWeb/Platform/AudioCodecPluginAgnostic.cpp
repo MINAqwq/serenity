@@ -43,7 +43,15 @@ ErrorOr<NonnullOwnPtr<AudioCodecPluginAgnostic>> AudioCodecPluginAgnostic::creat
         Audio::OutputState::Suspended, loader->sample_rate(), /* channels = */ 2, latency_ms,
         [&plugin = *plugin, loader](Bytes buffer, Audio::PcmSampleFormat format, size_t sample_count) -> ReadonlyBytes {
             VERIFY(format == Audio::PcmSampleFormat::Float32);
-            auto samples = loader->get_more_samples(sample_count).release_value_but_fixme_should_propagate_errors();
+            auto samples_err = loader->get_more_samples(sample_count);
+
+            if (samples_err.is_error()) {
+                plugin.on_decoder_error("Failed decoding audio stream data"_string);
+                return buffer.trim(0);
+            }
+
+            auto samples = samples_err.release_value();
+
             VERIFY(samples.size() <= sample_count);
             FixedMemoryStream writing_stream { buffer };
 
